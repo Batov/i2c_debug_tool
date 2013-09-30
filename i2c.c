@@ -12,8 +12,8 @@
 
 #define 	MISSING_FUNC_FMT   "Error: Adapter does not have %s capability\n"
 #define 	END_OPT 			-1
-#define 	True 				1
-#define		False				0
+#define 	TRUE 				1
+#define		FALSE				0
 
 static const char *optString = "r:s:g:h?";
 struct globalArgs_t
@@ -143,7 +143,9 @@ static inline  __s32 i2c_smbus_read_i2c_block_data	(	int 	file,
 void parse_args(int argc, char* argv[])
 {
 	int opt = 0;
-	globalArgs.help = True;
+	globalArgs.help = TRUE;
+	globalArgs.get = 0;
+	globalArgs.set = 0;
 
 	opt = getopt(argc, argv, optString);
 	while (opt != END_OPT)
@@ -153,19 +155,20 @@ void parse_args(int argc, char* argv[])
 		case 'r':
 		{
 			globalArgs.reg = optarg;
+			globalArgs.help = FALSE;
 			break;
 		}
 		case 's':
 		{
 
 			globalArgs.set = optarg;
-			globalArgs.help = False;
+			globalArgs.help = FALSE;
 			break;
 		}
 		case 'g':
 		{
 			globalArgs.get = optarg;
-			globalArgs.help = False;
+			globalArgs.help = FALSE;
 			break;
 		}
 		default:
@@ -183,16 +186,23 @@ int main(int argc,char* argv[])
 	parse_args(argc,argv);
 	char *end_ptr;
 	if (globalArgs.help) {printf("%s\n","-r -s -g"); return 0;}
-	int reg = strtol(globalArgs.get,&end_ptr,16);
+	int reg = strtol(globalArgs.reg,&end_ptr,16);
 	if (errno == ERANGE || *end_ptr)
 		{
 			printf("Register is invalid");
 			return -1;
 		}
+	if (!globalArgs.get && !globalArgs.set) 
+	{
+		printf("Set or Get ? \n");
+		printf("   -s [value] set value\n");
+		printf("   -g [size]  get size bytes \n");
+		return -1;
+	}
 	printf("Register = %d\n",reg);
 	char filename[20];
 	int fd;
-	
+
 	// if ((fd = open_i2c_dev(2,filename,sizeof(filename),0))< 0) return -1; 
 	// if (check_funcs(fd,0x48) < 0) return -1; 
 	// if (set_slave_addr(fd,0x48) < 0) return -1;
