@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <limits.h>
-#include <dirent.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <linux/i2c.h>
@@ -146,7 +144,7 @@ static inline __s32 i2c_smbus_write_i2c_block_data(int file, __u8 command,
          union i2c_smbus_data data;
          int i;
          if (length > 32)
-                 length = 32;
+                 length = 32;	
          for (i = 1; i <= length; i++)
                  data.block[i] = values[i-1];
          data.block[0] = length;
@@ -218,7 +216,7 @@ char parse_args(int argc, char* argv[])
 		printf("use -r [REGISTER] for set it\n");
 		return -1;
 	}
-
+	return 0;
 }
 
 int main(int argc,char* argv[])
@@ -231,9 +229,9 @@ int main(int argc,char* argv[])
 	char filename[20];
 	int fd;
 
-	// if ((fd = open_i2c_dev(2,filename,sizeof(filename),0))< 0) return -1; 
-	// if (check_funcs(fd,0x48) < 0) return -1; 
-	// if (set_slave_addr(fd,0x48) < 0) return -1;
+	if ((fd = open_i2c_dev(2,filename,sizeof(filename),0))< 0) return -1; 
+	if (check_funcs(fd,0x48) < 0) return -1; 
+	if (set_slave_addr(fd,0x48) < 0) return -1;
 
 	printf("Register = %x\n",globalArgs.reg);
 	int i = 0;
@@ -245,12 +243,11 @@ int main(int argc,char* argv[])
 		res = i2c_smbus_read_i2c_block_data(fd,globalArgs.reg,globalArgs.get,block+0);
 		printf("res = %d\n", res);
 		printf("0x");
-		for (;i<globalArgs.get;i++)
+		for (i = globalArgs.get-1;i>=0;i--)
 			printf("%02x", block[i]);
 	}
 	else
 	{
-		char *end_ptr;
 		__u8 block[20];
 		unsigned char byteval;
 		char f = FALSE;
