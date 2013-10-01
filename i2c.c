@@ -140,6 +140,20 @@ static inline  __s32 i2c_smbus_read_i2c_block_data	(	int 	file,
 	}
 }
 
+static inline __s32 i2c_smbus_write_i2c_block_data(int file, __u8 command,
+                                                __u8 length, __u8 *values)
+{
+         union i2c_smbus_data data;
+         int i;
+         if (length > 32)
+                 length = 32;
+         for (i = 1; i <= length; i++)
+                 data.block[i] = values[i-1];
+         data.block[0] = length;
+         return i2c_smbus_access(file,I2C_SMBUS_WRITE,command,
+                                 I2C_SMBUS_I2C_BLOCK_DATA, &data);
+}
+
 char parse_args(int argc, char* argv[])
 {
 	int opt = 0;
@@ -223,12 +237,12 @@ int main(int argc,char* argv[])
 
 	printf("Register = %x\n",globalArgs.reg);
 	int i = 0;
+	int res = 0;
 	if (globalArgs.get) 
 	{
 		printf("get = %d\n", globalArgs.get);
 		__u8 block[globalArgs.get];
-		int res = 0;
-		//res = i2c_smbus_read_i2c_block_data(fd,reg,size,block+0);
+		res = i2c_smbus_read_i2c_block_data(fd,globalArgs.reg,globalArgs.get,block+0);
 		printf("res = %d\n", res);
 		printf("0x");
 		for (;i<globalArgs.get;i++)
@@ -247,6 +261,7 @@ int main(int argc,char* argv[])
 			{
 				f = TRUE;
 				size = i;
+
 			}
 			else
 			{
@@ -255,8 +270,9 @@ int main(int argc,char* argv[])
 				i++;
 			}
 		}
-		printf("%d\n",i);
-		
+		printf("size of array = %d\n",i);
+		res = i2c_smbus_write_i2c_block_data(fd,globalArgs.reg,size,block+0);
+		printf("Result of operation = %d\n", res);
 	}
 
 	printf("\n");
