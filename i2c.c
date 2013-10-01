@@ -12,6 +12,8 @@
 #define 	END_OPT 			-1
 #define 	TRUE 				1
 #define		FALSE				0
+#define  	EXIT_SUCCESS		0
+#define		EXIT_NOT_SUCCESS	1
 
 static const char *optString = "r:s:g:h?";
 struct globalArgs_t
@@ -63,7 +65,7 @@ static inline int open_i2c_dev(int i2cbus, char *filename, size_t size, int quie
 			if (errno == EACCES)
 				fprintf(stderr, "Run as root?\n");
 		}
-	return -1;
+	return EXIT_NOT_SUCCESS;
 	}
 	return file; 
 }
@@ -79,7 +81,7 @@ static inline  int set_slave_addr(int file, int address)
 		return -errno;
 	}
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 static inline int check_funcs(int file, int daddress)
 {
@@ -89,7 +91,7 @@ static inline int check_funcs(int file, int daddress)
 	if (ioctl(file, I2C_FUNCS, &funcs) < 0) {
 	fprintf(stderr, "Error: Could not get the adapter "
 	        "functionality matrix: %s\n", strerror(errno));
-	return -1;
+	return EXIT_NOT_SUCCESS;
 	}
 	if (!(funcs & I2C_FUNC_SMBUS_READ_BYTE)) {
 	        fprintf(stderr, MISSING_FUNC_FMT, "SMBus receive byte");
@@ -110,7 +112,7 @@ static inline int check_funcs(int file, int daddress)
 	if (!(funcs & I2C_FUNC_SMBUS_READ_I2C_BLOCK)) {
 	        fprintf(stderr, MISSING_FUNC_FMT, "SMBus read i2c block data");
 	}
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 
@@ -129,7 +131,7 @@ static inline  __s32 i2c_smbus_read_i2c_block_data	(	int 	file,
 	if (i2c_smbus_access(file,I2C_SMBUS_READ,command,
 	    length == 32 ? I2C_SMBUS_I2C_BLOCK_BROKEN :
 	     I2C_SMBUS_I2C_BLOCK_DATA,&data))
-		return -1;
+		return EXIT_NOT_SUCCESS;
 
 	else {
 		for (i = 1; i <= data.block[0]; i++)
@@ -155,7 +157,6 @@ static inline __s32 i2c_smbus_write_i2c_block_data(int file, __u8 command,
 char parse_args(int argc, char* argv[])
 {
 	int opt = 0;
-	char *end_ptr;
 	globalArgs.help = TRUE;
 	globalArgs.get = 0;
 	globalArgs.set = 0;
@@ -168,70 +169,71 @@ char parse_args(int argc, char* argv[])
 		{
 		case 'r':
 		{
-			int reg = strtol(optarg,&end_ptr,16);
-			if (errno == ERANGE || *end_ptr)
+			if (sscanf(optarg, "0x%2hhx", &globalArgs.reg) != 1)
 			{
 				printf("Register is invalid\n");
-				return -1;
+				return EXIT_NOT_SUCCESS;
 			}
-			globalArgs.reg = reg;
 			globalArgs.help = FALSE;
 			break;
 		}
 		case 's':
 		{
-
 			globalArgs.set = optarg;
 			globalArgs.help = FALSE;
 			break;
 		}
 		case 'g':
 		{
-		int size = strtol(optarg,&end_ptr,10);
-		if (errno == ERANGE || *end_ptr)
+		if (sscanf(optarg, "%d", &globalArgs.get) != 1) 
 		{
-			printf("Size is invalid\n");
-			return -1;
+			printf("Operand is invalid\n");
+			return EXIT_NOT_SUCCESS;
 		}
-			globalArgs.get = size;
+		if (globalArgs.get == 0)
+		{
+			printf("Operand is invalid\n");
+			return EXIT_NOT_SUCCESS;
+		}
 			globalArgs.help = FALSE;
 			break;
 		}
 		default:
 		{
+			return EXIT_NOT_SUCCESS;
 			break;
 		}
 		}
 		opt = getopt(argc, argv, optString);
 	}
-	if (!globalArgs.get && !globalArgs.set) 
-	{
+	if (globalArgs.get == 0 && globalArgs.set == 0) 
+	{	
 		printf("Set or Get ? \n");
 		printf("   -s [value] set value\n");
 		printf("   -g [size]  get size bytes \n");
-		return -1;
+		return EXIT_NOT_SUCCESS;
 	}
 	if (!globalArgs.reg)
 	{
 		printf("use -r [REGISTER] for set it\n");
-		return -1;
+		return EXIT_NOT_SUCCESS;
 	}
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 int main(int argc,char* argv[])
 {
-	if (parse_args(argc,argv) < 0) return -1; 
+	if ((parse_args(argc,argv)) == 1) return EXIT_NOT_SUCCESS; 
 	
-	if (globalArgs.help) {printf("%s\n","-r -s -g"); return 0;}
+	if (globalArgs.help) {printf("%s\n","-r -s -g"); return EXIT_SUCCESS;}
 		
 	
 	char filename[20];
 	int fd;
 
-	if ((fd = open_i2c_dev(2,filename,sizeof(filename),0))< 0) return -1; 
-	if (check_funcs(fd,0x48) < 0) return -1; 
-	if (set_slave_addr(fd,0x48) < 0) return -1;
+	if ((fd = open_i2c_dev(2,filename,sizeof(filename),0))< 0) return EXIT_NOT_SUCCESS; 
+	if (check_funcs(fd,0x48) < 0) return EXIT_NOT_SUCCESS; 
+	if (set_slave_addr(fd,0x48) < 0) return EXIT_NOT_SUCCESS;
 
 	printf("Register = %x\n",globalArgs.reg);
 	int i = 0;
@@ -274,5 +276,5 @@ int main(int argc,char* argv[])
 
 	printf("\n");
 	close(fd);
-	return 0;
+	return EXIT_SUCCESS;
 }
