@@ -18,9 +18,9 @@
 static const char *optString = "r:s:g:h?";
 struct globalArgs_t
 {
-	char* reg;
+	char reg;
 	char* set;
-	char* get;
+	int get;
 	char help;
 } globalArgs;
 
@@ -140,12 +140,14 @@ static inline  __s32 i2c_smbus_read_i2c_block_data	(	int 	file,
 	}
 }
 
-void parse_args(int argc, char* argv[])
+char parse_args(int argc, char* argv[])
 {
 	int opt = 0;
+	char *end_ptr;
 	globalArgs.help = TRUE;
 	globalArgs.get = 0;
 	globalArgs.set = 0;
+	globalArgs.reg = 0;
 
 	opt = getopt(argc, argv, optString);
 	while (opt != END_OPT)
@@ -154,7 +156,13 @@ void parse_args(int argc, char* argv[])
 		{
 		case 'r':
 		{
-			globalArgs.reg = optarg;
+			int reg = strtol(optarg,&end_ptr,16);
+			if (errno == ERANGE || *end_ptr)
+			{
+				printf("Register is invalid\n");
+				return -1;
+			}
+			globalArgs.reg = reg;
 			globalArgs.help = FALSE;
 			break;
 		}
@@ -167,7 +175,13 @@ void parse_args(int argc, char* argv[])
 		}
 		case 'g':
 		{
-			globalArgs.get = optarg;
+		int size = strtol(optarg,&end_ptr,10);
+		if (errno == ERANGE || *end_ptr)
+		{
+			printf("Size is invalid\n");
+			return -1;
+		}
+			globalArgs.get = size;
 			globalArgs.help = FALSE;
 			break;
 		}
@@ -178,20 +192,6 @@ void parse_args(int argc, char* argv[])
 		}
 		opt = getopt(argc, argv, optString);
 	}
-
-}
-
-int main(int argc,char* argv[])
-{
-	parse_args(argc,argv);
-	char *end_ptr;
-	if (globalArgs.help) {printf("%s\n","-r -s -g"); return 0;}
-	int reg = strtol(globalArgs.reg,&end_ptr,16);
-	if (errno == ERANGE || *end_ptr)
-		{
-			printf("Register is invalid");
-			return -1;
-		}
 	if (!globalArgs.get && !globalArgs.set) 
 	{
 		printf("Set or Get ? \n");
@@ -199,7 +199,21 @@ int main(int argc,char* argv[])
 		printf("   -g [size]  get size bytes \n");
 		return -1;
 	}
-	printf("Register = %d\n",reg);
+	if (!globalArgs.reg)
+	{
+		printf("use -r [REGISTER] for set it\n");
+		return -1;
+	}
+
+}
+
+int main(int argc,char* argv[])
+{
+	if (parse_args(argc,argv) < 0) return -1; 
+	
+	if (globalArgs.help) {printf("%s\n","-r -s -g"); return 0;}
+		
+	
 	char filename[20];
 	int fd;
 
@@ -207,28 +221,42 @@ int main(int argc,char* argv[])
 	// if (check_funcs(fd,0x48) < 0) return -1; 
 	// if (set_slave_addr(fd,0x48) < 0) return -1;
 
+	printf("Register = %x\n",globalArgs.reg);
+	int i = 0;
 	if (globalArgs.get) 
 	{
-		int size = strtol(globalArgs.get,&end_ptr,10);
-		if (errno == ERANGE || *end_ptr)
-		{
-			printf("Size is invalid");
-			return -1;
-		}
-
-		printf("Size = %d\n",size);
-		int i = 0;
-		__u8 block[size];
+		printf("get = %d\n", globalArgs.get);
+		__u8 block[globalArgs.get];
 		int res = 0;
-		res = i2c_smbus_read_i2c_block_data(fd,reg,size,block+0);
+		//res = i2c_smbus_read_i2c_block_data(fd,reg,size,block+0);
 		printf("res = %d\n", res);
 		printf("0x");
-		for (;i<size;i++)
+		for (;i<globalArgs.get;i++)
 			printf("%02x", block[i]);
 	}
 	else
 	{
-
+		char *end_ptr;
+		__u8 block[20];
+		unsigned char byteval;
+		char f = FALSE;
+		int size = 0;
+		while (globalArgs.set[i] && !f )
+		{
+			if (sscanf(globalArgs.set+2*i, "%2hhx", &byteval) != 1)
+			{
+				f = TRUE;
+				size = i;
+			}
+			else
+			{
+				block[i] = byteval;
+				printf("block[%d]: %x\n",i,block[i]);
+				i++;
+			}
+		}
+		printf("%d\n",i);
+		
 	}
 
 	printf("\n");
