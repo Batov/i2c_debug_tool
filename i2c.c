@@ -272,7 +272,8 @@ int main(int argc,char* argv[])
 	{
 		printf("size of array = %d\n",Args.size);
 		Result = i2c_smbus_write_i2c_block_data(fd,Args.reg,Args.size,Args.set);
-		printf("Result of operation = %d\n", Result);
+		printf("Result of operation = %d\n", Result);  
+		//
 
 	}
 
