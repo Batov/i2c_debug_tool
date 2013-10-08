@@ -267,7 +267,7 @@ int main(int argc,char* argv[])
 		printf("0x");
 		for (i = Args.get-1;i>=0;i--)
 			printf("%02x", block[i]);
-	}
+	} 
 	else
 	{
 		printf("size of array = %d\n",Args.size);
