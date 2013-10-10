@@ -20,7 +20,7 @@ struct Args_t
 {
 	char reg;
 	__u8 set[30];
-	int size;
+	int getSize;
 	int get;
 	char help;
 } Args;
@@ -151,16 +151,19 @@ static inline __s32 i2c_smbus_write_i2c_block_data(int file, __u8 command,
 	return i2c_smbus_access(file,I2C_SMBUS_WRITE,command,
 		I2C_SMBUS_I2C_BLOCK_DATA, &data);
 }
-
-char parse_args(int argc, char* argv[])
+static inline void initArgs()
 {
-	int opt = 0;
 	Args.help = TRUE;
 	Args.get = 0;
 	Args.reg = 0;
-	Args.size = 0;
+	Args.getSize = 0;
 
-	opt = getopt(argc, argv, optString);
+}
+
+static inline char parse_args(int argc, char* argv[])
+{
+	initArgs();
+	int opt = getopt(argc, argv, optString);
 	while (opt != END_OPT)
 	{
 		switch (opt)
@@ -170,6 +173,7 @@ char parse_args(int argc, char* argv[])
 				if (sscanf(optarg, "0x%2hhx", &Args.reg) != 1)
 				{
 					printf("Register is invalid\n");
+					printf("Use 0x0 format\n");
 					return EXIT_NOT_SUCCESS;
 				}
 				Args.help = FALSE;
@@ -177,6 +181,11 @@ char parse_args(int argc, char* argv[])
 			}
 			case 's':
 			{
+				if (Args.get != 0)
+				{
+					printf("set or get?\n");
+					return EXIT_NOT_SUCCESS;
+				}
 				int i = 0;
 				unsigned char byteval;
 				char f = FALSE;
@@ -191,12 +200,11 @@ char parse_args(int argc, char* argv[])
 					if (sscanf(optarg+2*i, "%2hhx", &byteval) != 1)
 					{
 						f = TRUE;
-						Args.size = i;
+						Args.getSize = i;
 					}	
 					else
 					{
 						Args.set[i] = byteval;
-						printf("=[%d]: %x\n",i,Args.set[i]);
 						i++;
 					}
 				}
@@ -205,6 +213,11 @@ char parse_args(int argc, char* argv[])
 			}
 			case 'g':
 			{
+				if (Args.getSize != 0)
+				{
+					printf("set or get?\n");
+					return EXIT_NOT_SUCCESS;
+				}
 				if (sscanf(optarg, "%d", &Args.get) != 1) 
 				{
 					printf("Operand is invalid\n");
@@ -226,14 +239,20 @@ char parse_args(int argc, char* argv[])
 		}
 		opt = getopt(argc, argv, optString);
 	}
-	if (Args.help) 
+	if ((Args.getSize == 0) && (Args.get == 0))
+	{
+		printf("set or get?\n");
+		Args.help = TRUE;    	
+	}
+
+	if ((Args.help)) 
 	{	
 		printf("I2C tool \n");
 		printf("   -s [VALUE] set value to slave\n");
 		printf("   -g [SIZE]  get bytes from slave\n");
 		printf("   -r [REGISTER]\n");
-		printf("i2c -s 0x64 -r 0x16\n");
-		printf("i2c -g 4 -r 0x26\n");
+		printf("e.g.  i2c -s 0x64 -r 0x16\n");
+		printf("      i2c -g 4 -r 0x26\n");
 		return EXIT_NOT_SUCCESS;
 	}
 	if (!Args.reg)
@@ -255,29 +274,32 @@ int main(int argc,char* argv[])
 	if (check_funcs(fd,0x48) < 0) return EXIT_NOT_SUCCESS; 
 	if (set_slave_addr(fd,0x48) < 0) return EXIT_NOT_SUCCESS;
 
-	printf("Register = %x\n",Args.reg);
 	int i = 0;
-	int Result = 0;
 	if (Args.get) 
 	{
-		printf("get = %d\n", Args.get);
 		__u8 block[Args.get];
-		Result = i2c_smbus_read_i2c_block_data(fd,Args.reg,Args.get,block+0);
-		printf("Result of operation = %d\n", Result);
-		printf("0x");
-		for (i = Args.get-1;i>=0;i--)
-			printf("%02x", block[i]);
+		if  (i2c_smbus_read_i2c_block_data(fd,Args.reg,Args.get,block+0) != Args.get) 
+		{
+			printf("Get data failed");
+			return EXIT_NOT_SUCCESS;
+		}
+		else 
+		{
+			printf("0x");
+			for (i = Args.get-1;i>=0;i--)
+				printf("%02x", block[i]);
+			printf("\n");
+		}
 	} 
 	else
 	{
-		printf("size of array = %d\n",Args.size);
-		Result = i2c_smbus_write_i2c_block_data(fd,Args.reg,Args.size,Args.set);
-		printf("Result of operation = %d\n", Result);  
-		//
-
+		if (i2c_smbus_write_i2c_block_data(fd,Args.reg,Args.getSize,Args.set) != EXIT_SUCCESS)
+		{
+			printf("Set data failed");
+			return EXIT_NOT_SUCCESS;
+		}
+		
 	}
-
-printf("\n");
-close(fd);
-return EXIT_SUCCESS;
+	close(fd);
+	return EXIT_SUCCESS;
 }
