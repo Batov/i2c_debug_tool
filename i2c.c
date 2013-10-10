@@ -159,6 +159,61 @@ static inline void init_args()
 	Args.setSize = 0;
 
 }
+static inline void reverse()
+{
+	int i;
+	__u8 swap;
+	for (i = 0; i < Args.setSize/2; ++i)
+	{
+		swap = Args.set[i];
+		Args.set[i] = Args.set[Args.setSize-1-i];
+		Args.set[Args.setSize-1-i] = swap;
+	}
+}
+
+static inline int parse_setArg()
+{
+	int i = 0;
+	unsigned char byteval;
+	char f = FALSE;
+	if (optarg[0] != '0' && optarg[1] != 'x') 
+	{
+		printf("Use 0x0 format\n");
+		return EXIT_NOT_SUCCESS;
+	}
+	else optarg += 2;
+	while (optarg[i] && !f)
+	{
+		if (sscanf(optarg+2*i, "%2hhx", &byteval) != 1)
+		{
+			f = TRUE;
+			Args.setSize = i;
+		}	
+		else
+		{	
+			if (i == 0) Args.setSize = 1;   
+			Args.set[i] = byteval;
+			i++;
+		}
+		reverse();
+	}
+	return EXIT_SUCCESS;
+}
+
+static inline int parse_getArg()
+{
+	if (sscanf(optarg, "%d", &Args.get) != 1) 
+	{
+		printf("Operand is invalid\n");
+		return EXIT_NOT_SUCCESS;
+	}
+	if (Args.get == 0)
+	{
+		printf("Operand is invalid\n");
+		return EXIT_NOT_SUCCESS;
+	}
+	return EXIT_SUCCESS;
+}
 
 static inline char parse_args(int argc, char* argv[])
 {
@@ -181,53 +236,23 @@ static inline char parse_args(int argc, char* argv[])
 			}
 			case 's':
 			{
-				if (Args.get != 0)
+				if (Args.get != 0) // if set and get together
 				{
 					printf("set or get?\n");
 					return EXIT_NOT_SUCCESS;
 				}
-				int i = 0;
-				unsigned char byteval;
-				char f = FALSE;
-				if (optarg[0] != '0' && optarg[1] != 'x') 
-				{
-					printf("Use 0x0 format\n");
-					return EXIT_NOT_SUCCESS;
-				}
-				else optarg += 2;
-				while (optarg[i] && !f)
-				{
-					if (sscanf(optarg+2*i, "%2hhx", &byteval) != 1)
-					{
-						f = TRUE;
-						Args.setSize = i;
-					}	
-					else
-					{
-						Args.set[i] = byteval;
-						i++;
-					}
-				}
+				if (parse_setArg() != EXIT_SUCCESS) return EXIT_NOT_SUCCESS;
 				Args.help = FALSE;
 				break;
 			}
 			case 'g':
 			{
-				if (Args.setSize != 0)
+				if (Args.setSize != 0) // if set and get together
 				{
 					printf("set or get?\n");
 					return EXIT_NOT_SUCCESS;
 				}
-				if (sscanf(optarg, "%d", &Args.get) != 1) 
-				{
-					printf("Operand is invalid\n");
-					return EXIT_NOT_SUCCESS;
-				}
-				if (Args.get == 0)
-				{
-					printf("Operand is invalid\n");
-					return EXIT_NOT_SUCCESS;
-				}
+				if (parse_getArg() != EXIT_SUCCESS) return EXIT_NOT_SUCCESS;
 				Args.help = FALSE;
 				break;
 			}
