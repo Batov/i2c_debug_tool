@@ -20,7 +20,7 @@ struct Args_t
 {
 	char reg;
 	__u8 set[30];
-	int getSize;
+	int setSize;
 	int get;
 	char help;
 } Args;
@@ -151,18 +151,18 @@ static inline __s32 i2c_smbus_write_i2c_block_data(int file, __u8 command,
 	return i2c_smbus_access(file,I2C_SMBUS_WRITE,command,
 		I2C_SMBUS_I2C_BLOCK_DATA, &data);
 }
-static inline void initArgs()
+static inline void init_args()
 {
 	Args.help = TRUE;
 	Args.get = 0;
 	Args.reg = 0;
-	Args.getSize = 0;
+	Args.setSize = 0;
 
 }
 
 static inline char parse_args(int argc, char* argv[])
 {
-	initArgs();
+	init_args();
 	int opt = getopt(argc, argv, optString);
 	while (opt != END_OPT)
 	{
@@ -200,7 +200,7 @@ static inline char parse_args(int argc, char* argv[])
 					if (sscanf(optarg+2*i, "%2hhx", &byteval) != 1)
 					{
 						f = TRUE;
-						Args.getSize = i;
+						Args.setSize = i;
 					}	
 					else
 					{
@@ -213,7 +213,7 @@ static inline char parse_args(int argc, char* argv[])
 			}
 			case 'g':
 			{
-				if (Args.getSize != 0)
+				if (Args.setSize != 0)
 				{
 					printf("set or get?\n");
 					return EXIT_NOT_SUCCESS;
@@ -239,7 +239,7 @@ static inline char parse_args(int argc, char* argv[])
 		}
 		opt = getopt(argc, argv, optString);
 	}
-	if ((Args.getSize == 0) && (Args.get == 0))
+	if ((Args.setSize == 0) && (Args.get == 0))
 	{
 		printf("set or get?\n");
 		Args.help = TRUE;    	
@@ -293,7 +293,7 @@ int main(int argc,char* argv[])
 	} 
 	else
 	{
-		if (i2c_smbus_write_i2c_block_data(fd,Args.reg,Args.getSize,Args.set) != EXIT_SUCCESS)
+		if (i2c_smbus_write_i2c_block_data(fd,Args.reg,Args.setSize,Args.set) != EXIT_SUCCESS)
 		{
 			printf("Set data failed");
 			return EXIT_NOT_SUCCESS;
